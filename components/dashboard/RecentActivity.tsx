@@ -7,30 +7,30 @@ const activities = [
   {
     id: 1,
     user: "Alice Smith",
-    action: "created a new order",
+    action: "đã tạo đơn hàng mới",
     target: "#ORD-001",
-    time: "2 minutes ago",
+    time: "2 phút trước",
   },
   {
     id: 2,
     user: "Bob Johnson",
-    action: "registered as a new customer",
+    action: "đã đăng ký khách hàng mới",
     target: "",
-    time: "1 hour ago",
+    time: "1 giờ trước",
   },
   {
     id: 3,
-    user: "System",
-    action: "updated product inventory",
-    target: "Wireless Headphones",
-    time: "3 hours ago",
+    user: "Hệ thống",
+    action: "đã cập nhật kho sản phẩm",
+    target: "Tai nghe không dây",
+    time: "3 giờ trước",
   },
   {
     id: 4,
     user: "Charlie Brown",
-    action: "left a review",
-    target: "Smart Watch",
-    time: "5 hours ago",
+    action: "đã đánh giá",
+    target: "Đồng hồ thông minh",
+    time: "5 giờ trước",
   },
 ];
 
@@ -38,7 +38,7 @@ export const RecentActivity = () => {
   return (
     <div className="rounded-xl border bg-white p-6 shadow-sm dark:bg-gray-900 dark:border-gray-800">
       <h3 className="mb-4 text-lg font-semibold text-gray-900 dark:text-gray-100">
-        Recent Activity
+        Hoạt động gần đây
       </h3>
       <div className="space-y-4">
         {activities.map((activity) => (

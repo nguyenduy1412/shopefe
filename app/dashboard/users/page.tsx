@@ -85,7 +85,7 @@ export default function UsersPage() {
       setUsers(response.data || []);
       setTotal(response.count || 0);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to fetch users");
+      setError(err instanceof Error ? err.message : "Lỗi tải người dùng");
     } finally {
       setLoading(false);
     }
@@ -104,12 +104,12 @@ export default function UsersPage() {
   }, [fetchUsers]);
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this user?")) return;
+    if (!confirm("Bạn có chắc chắn muốn xóa người dùng này không?")) return;
     try {
       await UserService.delete(id);
       fetchUsers();
     } catch (err) {
-      alert("Failed to delete user");
+      alert("Xóa người dùng thất bại");
     }
   };
 
@@ -128,13 +128,13 @@ export default function UsersPage() {
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">
-            Users
+            Người dùng
           </h1>
-          <p className="text-sm text-gray-500">Manage system users</p>
+          <p className="text-sm text-gray-500">Quản lý người dùng hệ thống</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={() => fetchUsers()}>
-            Refresh
+            Làm mới
           </Button>
         </div>
       </div>
@@ -143,7 +143,7 @@ export default function UsersPage() {
         <div className="relative flex-1">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
           <Input
-            placeholder="Search username..."
+            placeholder="Tìm tên người dùng..."
             className="pl-9"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -152,7 +152,7 @@ export default function UsersPage() {
         <div className="w-full md:w-48">
           <Input
             type="number"
-            placeholder="Filter by Table"
+            placeholder="Lọc theo bàn"
             value={tableFilter}
             onChange={(e) => setTableFilter(e.target.value)}
           />
@@ -160,7 +160,7 @@ export default function UsersPage() {
         <div className="w-full md:w-48">
           <Input
             type="number"
-            placeholder="Min Revenue"
+            placeholder="Doanh thu tối thiểu"
             value={minRevenue}
             onChange={(e) => setMinRevenue(e.target.value)}
           />
@@ -176,7 +176,7 @@ export default function UsersPage() {
                 onClick={() => handleSort("username")}
               >
                 <div className="flex items-center">
-                  Username {getSortIcon("username")}
+                  Tên người dùng {getSortIcon("username")}
                 </div>
               </TableHead>
               <TableHead
@@ -184,7 +184,7 @@ export default function UsersPage() {
                 onClick={() => handleSort("status")}
               >
                 <div className="flex items-center">
-                  Status {getSortIcon("status")}
+                  Trạng thái {getSortIcon("status")}
                 </div>
               </TableHead>
               <TableHead>Cookie</TableHead>
@@ -193,7 +193,7 @@ export default function UsersPage() {
                 onClick={() => handleSort("table")}
               >
                 <div className="flex items-center">
-                  Table {getSortIcon("table")}
+                  Bàn {getSortIcon("table")}
                 </div>
               </TableHead>
               <TableHead
@@ -201,7 +201,7 @@ export default function UsersPage() {
                 onClick={() => handleSort("revenue")}
               >
                 <div className="flex items-center justify-end">
-                  Revenue {getSortIcon("revenue")}
+                  Doanh thu {getSortIcon("revenue")}
                 </div>
               </TableHead>
               <TableHead
@@ -209,7 +209,7 @@ export default function UsersPage() {
                 onClick={() => handleSort("comm")}
               >
                 <div className="flex items-center justify-end">
-                  Commission {getSortIcon("comm")}
+                  Hoa hồng {getSortIcon("comm")}
                 </div>
               </TableHead>
               <TableHead
@@ -217,10 +217,10 @@ export default function UsersPage() {
                 onClick={() => handleSort("createdAt")}
               >
                 <div className="flex items-center">
-                  Created At {getSortIcon("createdAt")}
+                  Ngày tạo {getSortIcon("createdAt")}
                 </div>
               </TableHead>
-              <TableHead className="text-right">Actions</TableHead>
+              <TableHead className="text-right">Thao tác</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -228,35 +228,35 @@ export default function UsersPage() {
               Array.from({ length: 5 }).map((_, i) => (
                 <TableRow key={i}>
                   <TableCell>
-                    <div className="h-4 w-[100px] rounded bg-gray-200 animate-pulse dark:bg-gray-700" />
+                    <div className="h-4 w-[100px] rounded skeleton-shimmer" />
                   </TableCell>
                   <TableCell>
-                    <div className="h-4 w-[50px] rounded bg-gray-200 animate-pulse dark:bg-gray-700" />
+                    <div className="h-4 w-[50px] rounded skeleton-shimmer" />
                   </TableCell>
                   <TableCell>
-                    <div className="h-4 w-[40px] rounded bg-gray-200 animate-pulse dark:bg-gray-700" />
+                    <div className="h-4 w-[40px] rounded skeleton-shimmer" />
                   </TableCell>
                   <TableCell>
-                    <div className="h-4 w-[30px] rounded bg-gray-200 animate-pulse dark:bg-gray-700" />
+                    <div className="h-4 w-[30px] rounded skeleton-shimmer" />
                   </TableCell>
                   <TableCell className="text-right">
-                    <div className="ml-auto h-4 w-[80px] rounded bg-gray-200 animate-pulse dark:bg-gray-700" />
+                    <div className="ml-auto h-4 w-[80px] rounded skeleton-shimmer" />
                   </TableCell>
                   <TableCell className="text-right">
-                    <div className="ml-auto h-4 w-[80px] rounded bg-gray-200 animate-pulse dark:bg-gray-700" />
+                    <div className="ml-auto h-4 w-[80px] rounded skeleton-shimmer" />
                   </TableCell>
                   <TableCell>
-                    <div className="h-4 w-[120px] rounded bg-gray-200 animate-pulse dark:bg-gray-700" />
+                    <div className="h-4 w-[120px] rounded skeleton-shimmer" />
                   </TableCell>
                   <TableCell className="text-right">
-                    <div className="ml-auto h-4 w-[40px] rounded bg-gray-200 animate-pulse dark:bg-gray-700" />
+                    <div className="ml-auto h-4 w-[40px] rounded skeleton-shimmer" />
                   </TableCell>
                 </TableRow>
               ))
             ) : users.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={8} className="h-24 text-center">
-                  No users found.
+                  Không tìm thấy người dùng.
                 </TableCell>
               </TableRow>
             ) : (
@@ -271,7 +271,7 @@ export default function UsersPage() {
                           : "bg-gray-100 text-gray-800"
                       }`}
                     >
-                      {user.status === 1 ? "Active" : "Inactive"}
+                      {user.status === 1 ? "Hoạt động" : "Không HĐ"}
                     </span>
                   </TableCell>
                   <TableCell>
@@ -332,8 +332,8 @@ export default function UsersPage() {
 
       <div className="flex items-center justify-between">
         <div className="text-sm text-gray-500">
-          Showing {(page - 1) * limit + 1} to {Math.min(page * limit, total)} of{" "}
-          {total} results
+          Hiển thị {(page - 1) * limit + 1} đến {Math.min(page * limit, total)}{" "}
+          trong {total} kết quả
         </div>
         <div className="flex gap-2">
           <Button
@@ -343,7 +343,7 @@ export default function UsersPage() {
             disabled={page === 1 || loading}
           >
             <ChevronLeft className="h-4 w-4" />
-            Previous
+            Trước
           </Button>
           <Button
             variant="outline"
@@ -351,7 +351,7 @@ export default function UsersPage() {
             onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
             disabled={page === totalPages || loading}
           >
-            Next
+            Tiếp
             <ChevronRight className="h-4 w-4" />
           </Button>
         </div>

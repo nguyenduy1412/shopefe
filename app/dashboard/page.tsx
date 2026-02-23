@@ -10,43 +10,43 @@ export default function DashboardPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-          Dashboard
+          Tổng quan
         </h1>
         <p className="text-sm text-gray-500 dark:text-gray-400">
-          Overview of your store's performance.
+          Tổng quan hiệu suất cửa hàng của bạn.
         </p>
       </div>
 
       <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
         <StatsCard
-          title="Total Revenue"
+          title="Tổng doanh thu"
           value="$45,231.89"
           icon={DollarSign}
-          trend="+20.1% from last month"
+          trend="+20.1% so với tháng trước"
           trendDirection="up"
           color="green"
         />
         <StatsCard
-          title="Subscriptions"
+          title="Đăng ký"
           value="+2350"
           icon={Users}
-          trend="+180.1% from last month"
+          trend="+180.1% so với tháng trước"
           trendDirection="up"
           color="blue"
         />
         <StatsCard
-          title="Sales"
+          title="Đã bán"
           value="+12,234"
           icon={ShoppingBag}
-          trend="+19% from last month"
+          trend="+19% so với tháng trước"
           trendDirection="up"
           color="purple"
         />
         <StatsCard
-          title="Active Now"
+          title="Đang hoạt động"
           value="+573"
           icon={Activity}
-          trend="+201 since last hour"
+          trend="+201 từ giờ trước"
           trendDirection="up"
           color="orange"
         />
@@ -60,10 +60,10 @@ export default function DashboardPage() {
           className="col-span-4 rounded-xl border bg-white p-6 shadow-sm dark:bg-gray-900 dark:border-gray-800"
         >
           <h3 className="mb-4 text-lg font-semibold text-gray-900 dark:text-gray-100">
-            Overview
+            Tổng quan
           </h3>
           <div className="h-[300px] flex items-center justify-center text-gray-400 dark:text-gray-500 bg-gray-50 dark:bg-gray-800 rounded-lg border border-dashed border-gray-200 dark:border-gray-700">
-            Chart Placeholder
+            Biểu đồ sẽ ở đây
           </div>
         </motion.div>
 
