@@ -5,12 +5,14 @@ import { Product } from "@/types/database";
 const supabase = createClient();
 
 export interface ProductSearchParams {
-    cursor?: string | number; // Value of the sort column for the last item
-    limit?: number;
+    page?: number;       // 1-indexed page number
+    limit?: number;      // items per page, default 20
     filters?: {
         name?: string;
         shop_id?: string;
-        type?: string;
+        type?: string[];  // array of selected types
+        flash_sale_start_before?: number;
+        flash_sale_end_before?: number;
     };
     sort?: {
         column: "created_at" | "price" | "sold" | "comm" | "comm_rate";
@@ -18,33 +20,29 @@ export interface ProductSearchParams {
     };
 }
 
+export interface ProductSearchResult {
+    data: Product[];
+    totalCount: number;
+    page: number;
+    totalPages: number;
+}
+
 export const ProductService = {
-    // Supports search filters, sorting, and cursor-based pagination
-    async search({ cursor, limit = 10, filters, sort }: ProductSearchParams) {
-        // Default sort: created_at DESC
+    // Supports search filters, sorting, and page-based pagination
+    async search({ page = 1, limit = 20, filters, sort }: ProductSearchParams): Promise<ProductSearchResult> {
         const sortColumn = sort?.column || "created_at";
         const sortDirection = sort?.direction || "desc";
         const isAsc = sortDirection === "asc";
 
+        const from = (page - 1) * limit;
+        const to = from + limit - 1;
+
         let query = supabase
             .from("products")
-            .select("*")
+            .select("*", { count: "exact" })
             .order(sortColumn, { ascending: isAsc })
             .order("id", { ascending: true }) // Deterministic tie-breaker
-            .limit(limit);
-
-        // Apply cursor (pagination)
-        // Using simple value cursor. Note: For non-unique columns like 'price',
-        // robust cursor pagination requires (value, id) tuple comparison.
-        // This implementation uses the value only, which is sufficient for basic cases
-        // but might skip items if many share the exact same sort value on page boundaries.
-        if (cursor !== undefined && cursor !== null) {
-            if (isAsc) {
-                query = query.gt(sortColumn, cursor);
-            } else {
-                query = query.lt(sortColumn, cursor);
-            }
-        }
+            .range(from, to);
 
         // Apply Filters (AND conditions)
         if (filters) {
@@ -54,22 +52,44 @@ export const ProductService = {
             if (filters.shop_id) {
                 query = query.eq("shop_id", filters.shop_id);
             }
-            if (filters.type) {
-                query = query.eq("type", filters.type);
+            if (filters.type && filters.type.length > 0) {
+                query = query.in("type", filters.type);
+            }
+            if (filters.flash_sale_start_before != null) {
+                query = query.not("flash_sale_start", "is", null)
+                    .lte("flash_sale_start", filters.flash_sale_start_before);
+            }
+            if (filters.flash_sale_end_before != null) {
+                query = query.not("flash_sale_end", "is", null)
+                    .lte("flash_sale_end", filters.flash_sale_end_before);
             }
         }
 
-        const { data, error } = await query;
+        const { data, error, count } = await query;
         if (error) throw error;
 
-        // Determine the next cursor
-        const nextCursor =
-            data && data.length === limit ? data[data.length - 1][sortColumn] : null;
+        const totalCount = count ?? 0;
+        const totalPages = Math.ceil(totalCount / limit);
 
         return {
             data: data || [],
-            nextCursor,
+            totalCount,
+            page,
+            totalPages,
         };
+    },
+
+    // Get all distinct product types
+    async getTypes(): Promise<string[]> {
+        // Query distinct types — Supabase doesn't have native DISTINCT,
+        // so we select type column and dedupe client-side
+        const { data, error } = await supabase
+            .from("products")
+            .select("type")
+            .limit(1000);
+        if (error) throw error;
+        const types = [...new Set((data || []).map((d: { type: string }) => d.type))].filter(Boolean).sort();
+        return types;
     },
 
     async getById(id: string) {
