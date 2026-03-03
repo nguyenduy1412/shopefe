@@ -14,7 +14,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
-import { format } from "date-fns";
+import { formatICTDateTime } from "@/lib/timezone";
+
 import {
   Search,
   Trash2,
@@ -23,23 +24,20 @@ import {
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
-  Copy,
-  Check,
 } from "lucide-react";
 import { useDebounce } from "use-debounce";
 
 export default function UsersPage() {
   const [users, setUsers] = useState<User[]>([]);
+  const [roles, setRoles] = useState<
+    { id: string; name: string; code: string }[]
+  >([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
   // Params
   const [search, setSearch] = useState("");
   const [debouncedSearch] = useDebounce(search, 500);
-  const [tableFilter, setTableFilter] = useState("");
-  const [debouncedTableFilter] = useDebounce(tableFilter, 500);
-  const [minRevenue, setMinRevenue] = useState("");
-  const [debouncedMinRevenue] = useDebounce(minRevenue, 500);
+  const [roleFilter, setRoleFilter] = useState<string>("all");
   const [page, setPage] = useState(1);
   const [limit] = useState(10);
   const [total, setTotal] = useState(0);
@@ -71,11 +69,8 @@ export default function UsersPage() {
         page,
         limit,
         search: debouncedSearch || undefined,
-        table: debouncedTableFilter ? Number(debouncedTableFilter) : undefined,
-        minRevenue: debouncedMinRevenue
-          ? Number(debouncedMinRevenue)
-          : undefined,
-        sortBy, // Sort by revenue as requested? Or make it togglable? Let's generic sort by createdAt default but user asked for revenue filter/sort
+        role_id: roleFilter !== "all" ? roleFilter : undefined,
+        sortBy,
         sortOrder,
       });
 
@@ -84,20 +79,25 @@ export default function UsersPage() {
       }
       setUsers(response.data || []);
       setTotal(response.count || 0);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Lỗi tải người dùng");
+    } catch {
+      // setError(err instanceof Error ? err.message : "Lỗi tải người dùng");
     } finally {
       setLoading(false);
     }
-  }, [
-    page,
-    limit,
-    debouncedSearch,
-    debouncedTableFilter,
-    debouncedMinRevenue,
-    sortBy,
-    sortOrder,
-  ]);
+  }, [page, limit, debouncedSearch, roleFilter, sortBy, sortOrder]);
+
+  const fetchRoles = useCallback(async () => {
+    try {
+      const { data } = await UserService.getRoles();
+      if (data) setRoles(data);
+    } catch (e) {
+      console.error(e);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchRoles();
+  }, [fetchRoles]);
 
   useEffect(() => {
     fetchUsers();
@@ -108,17 +108,9 @@ export default function UsersPage() {
     try {
       await UserService.delete(id);
       fetchUsers();
-    } catch (err) {
+    } catch {
       alert("Xóa người dùng thất bại");
     }
-  };
-
-  const [copiedId, setCopiedId] = useState<string | null>(null);
-
-  const copyToClipboard = (text: string, id: string) => {
-    navigator.clipboard.writeText(text);
-    setCopiedId(id);
-    setTimeout(() => setCopiedId(null), 2000);
   };
 
   const totalPages = Math.ceil(total / limit);
@@ -143,27 +135,26 @@ export default function UsersPage() {
         <div className="relative flex-1">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
           <Input
-            placeholder="Tìm tên người dùng..."
+            placeholder="Tìm tên nhân viên, email..."
             className="pl-9"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
         <div className="w-full md:w-48">
-          <Input
-            type="number"
-            placeholder="Lọc theo bàn"
-            value={tableFilter}
-            onChange={(e) => setTableFilter(e.target.value)}
-          />
-        </div>
-        <div className="w-full md:w-48">
-          <Input
-            type="number"
-            placeholder="Doanh thu tối thiểu"
-            value={minRevenue}
-            onChange={(e) => setMinRevenue(e.target.value)}
-          />
+          <Select
+            value={roleFilter}
+            onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
+              setRoleFilter(e.target.value)
+            }
+          >
+            <option value="all">Tất cả phân quyền</option>
+            {roles.map((role) => (
+              <option key={role.id} value={role.id}>
+                {role.name}
+              </option>
+            ))}
+          </Select>
         </div>
       </div>
 
@@ -173,43 +164,20 @@ export default function UsersPage() {
             <TableRow>
               <TableHead
                 className="cursor-pointer"
-                onClick={() => handleSort("username")}
+                onClick={() => handleSort("fullName")}
               >
                 <div className="flex items-center">
-                  Tên người dùng {getSortIcon("username")}
+                  Tên người dùng {getSortIcon("fullName")}
                 </div>
               </TableHead>
+              <TableHead>Email</TableHead>
+              <TableHead>Phân quyền</TableHead>
               <TableHead
                 className="cursor-pointer"
                 onClick={() => handleSort("status")}
               >
                 <div className="flex items-center">
                   Trạng thái {getSortIcon("status")}
-                </div>
-              </TableHead>
-              <TableHead>Cookie</TableHead>
-              <TableHead
-                className="cursor-pointer"
-                onClick={() => handleSort("table")}
-              >
-                <div className="flex items-center">
-                  Bàn {getSortIcon("table")}
-                </div>
-              </TableHead>
-              <TableHead
-                className="text-right cursor-pointer"
-                onClick={() => handleSort("revenue")}
-              >
-                <div className="flex items-center justify-end">
-                  Doanh thu {getSortIcon("revenue")}
-                </div>
-              </TableHead>
-              <TableHead
-                className="text-right cursor-pointer"
-                onClick={() => handleSort("comm")}
-              >
-                <div className="flex items-center justify-end">
-                  Hoa hồng {getSortIcon("comm")}
                 </div>
               </TableHead>
               <TableHead
@@ -228,22 +196,16 @@ export default function UsersPage() {
               Array.from({ length: 5 }).map((_, i) => (
                 <TableRow key={i}>
                   <TableCell>
+                    <div className="h-4 w-[120px] rounded skeleton-shimmer" />
+                  </TableCell>
+                  <TableCell>
+                    <div className="h-4 w-[150px] rounded skeleton-shimmer" />
+                  </TableCell>
+                  <TableCell>
                     <div className="h-4 w-[100px] rounded skeleton-shimmer" />
                   </TableCell>
                   <TableCell>
-                    <div className="h-4 w-[50px] rounded skeleton-shimmer" />
-                  </TableCell>
-                  <TableCell>
-                    <div className="h-4 w-[40px] rounded skeleton-shimmer" />
-                  </TableCell>
-                  <TableCell>
-                    <div className="h-4 w-[30px] rounded skeleton-shimmer" />
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div className="ml-auto h-4 w-[80px] rounded skeleton-shimmer" />
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div className="ml-auto h-4 w-[80px] rounded skeleton-shimmer" />
+                    <div className="h-4 w-[80px] rounded skeleton-shimmer" />
                   </TableCell>
                   <TableCell>
                     <div className="h-4 w-[120px] rounded skeleton-shimmer" />
@@ -255,14 +217,28 @@ export default function UsersPage() {
               ))
             ) : users.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={8} className="h-24 text-center">
+                <TableCell colSpan={6} className="h-24 text-center">
                   Không tìm thấy người dùng.
                 </TableCell>
               </TableRow>
             ) : (
               users.map((user) => (
                 <TableRow key={user.id}>
-                  <TableCell className="font-medium">{user.username}</TableCell>
+                  <TableCell className="font-medium">
+                    {user.fullName || "Tài khoản Nội bộ"}
+                  </TableCell>
+                  <TableCell className="text-gray-500">
+                    {user.username}
+                  </TableCell>
+                  <TableCell>
+                    <span className="inline-flex items-center rounded-md bg-blue-50 px-2 py-1 text-xs font-medium text-blue-700 ring-1 ring-inset ring-blue-700/10">
+                      {roles.find(
+                        (r) =>
+                          r.id ===
+                          (user as User & { role_id?: string }).role_id,
+                      )?.name || "Chưa cấp quyền"}
+                    </span>
+                  </TableCell>
                   <TableCell>
                     <span
                       className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
@@ -274,43 +250,9 @@ export default function UsersPage() {
                       {user.status === 1 ? "Hoạt động" : "Không HĐ"}
                     </span>
                   </TableCell>
-                  <TableCell>
-                    {user.cookie ? (
-                      <div className="flex items-center gap-2">
-                        <span className="text-gray-500">....</span>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-6 w-6"
-                          onClick={() => copyToClipboard(user.cookie, user.id)}
-                        >
-                          {copiedId === user.id ? (
-                            <Check className="h-3 w-3 text-green-500" />
-                          ) : (
-                            <Copy className="h-3 w-3 text-gray-500" />
-                          )}
-                        </Button>
-                      </div>
-                    ) : (
-                      <span className="text-gray-400">-</span>
-                    )}
-                  </TableCell>
-                  <TableCell>{user.table}</TableCell>
-                  <TableCell className="text-right font-medium">
-                    {new Intl.NumberFormat("vi-VN", {
-                      style: "currency",
-                      currency: "VND",
-                    }).format(user.revenue)}
-                  </TableCell>
-                  <TableCell className="text-right text-gray-500">
-                    {new Intl.NumberFormat("vi-VN", {
-                      style: "currency",
-                      currency: "VND",
-                    }).format(user.comm)}
-                  </TableCell>
                   <TableCell className="text-gray-500">
                     {user.createdAt
-                      ? format(new Date(user.createdAt), "dd/MM/yyyy HH:mm")
+                      ? formatICTDateTime(new Date(user.createdAt))
                       : "N/A"}
                   </TableCell>
                   <TableCell className="text-right">

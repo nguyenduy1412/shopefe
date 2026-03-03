@@ -4,7 +4,9 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider  = "postgresql"
+  url       = env("NEXT_PUBLIC_DATABASE_URL")
+  directUrl = env("NEXT_PUBLIC_DIRECT_URL")
 }
 
 model categories {
@@ -44,15 +46,60 @@ model shops {
   products products[]
 }
 
+model role {
+  id          String   @id @default(uuid())
+  code        String   @unique // ADMIN, NHAN_VIEN, SHOPEE
+  name        String
+  description String?
+  users       user[]
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+}
+
 model user {
-  id        String    @id
-  username  String
-  cookie    String
-  status    Int
-  table     Int
-  revenue   Float
-  comm      Float
-  createdAt DateTime  @default(now())
-  updatedAt DateTime
-  deletedAt DateTime?
+  id           String        @id @default(uuid())
+  username     String        @unique // Assuming username is unique
+  fullName     String?       // Display Name
+  cookie       String?
+  status       Int?          @default(1)
+  table        Int?
+  revenue      Float?        @default(0)
+  comm         Float?        @default(0)
+  role_id      String?
+  role         role?         @relation(fields: [role_id], references: [id])
+  timekeepings    timekeeping[] // Relation to timekeeping records
+  shift_schedules shift_schedule[] // Relation to assigned shifts
+  createdAt       DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  deletedAt    DateTime?
+}
+
+model timekeeping {
+  id                 String    @id @default(uuid())
+  user_id            String
+  user               user      @relation(fields: [user_id], references: [id])
+  date               DateTime  @db.Date
+  check_in_time      DateTime
+  check_out_time     DateTime?
+  status             String? // ON_TIME, LATE, ABSENT, HALF_DAY
+  check_in_location  String?
+  check_out_location String?
+  ip_address         String?   @db.VarChar(45)
+  device_info        String?   @db.VarChar(255)
+  note               String?
+  created_at         DateTime  @default(now())
+  updated_at         DateTime  @updatedAt
+
+  @@index([user_id, date]) // Index for fast lookup by user + day
+}
+
+model shift_schedule {
+  id         String   @id @default(uuid())
+  user_id    String
+  user       user     @relation(fields: [user_id], references: [id])
+  date       DateTime @db.Date // Xử lý bằng YYYY-MM-DD
+  shift_type String   // SANG (Sáng), CHIEU (Chiều), TOI (Tối), DEM (Đêm)
+  created_at DateTime @default(now())
+
+  @@unique([user_id, date, shift_type]) // Một user không thể được gán 2 lần vào cùng 1 ca trong 1 ngày
 }

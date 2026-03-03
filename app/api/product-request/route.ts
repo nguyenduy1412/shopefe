@@ -50,7 +50,7 @@ export async function POST(request: Request) {
                 prisma.products.createMany({
                     data: chunk,
                     skipDuplicates: true
-                }).then(res => res.count).catch(e => {
+                }).then((res: { count: number }) => res.count).catch((e: unknown) => {
                     console.error("Error inserting products chunk", e);
                     return 0;
                 })
@@ -58,7 +58,7 @@ export async function POST(request: Request) {
         }
 
         const results = await Promise.all(prodPromises);
-        const totalCount = results.reduce((acc, count) => acc + count, 0);
+        const totalCount = results.reduce((acc: number, count: number) => acc + count, 0);
 
         return NextResponse.json({
             message: "Success",

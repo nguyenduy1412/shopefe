@@ -39,7 +39,7 @@ export async function POST(request: Request) {
         });
 
         const results = await Promise.all(promises);
-        totalCount = results.reduce((acc, curr) => acc + curr, 0);
+        totalCount = results.reduce((acc: number, curr: number) => acc + curr, 0);
 
         return NextResponse.json({ count: totalCount });
     } catch (error) {

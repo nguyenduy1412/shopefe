@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { ProductService, ProductSearchParams } from "@/services/products";
 import { Product } from "@/types/database";
 import { useApi } from "@/hooks/useApi";
@@ -13,11 +13,14 @@ import {
   ChevronLeft,
   ChevronRight,
   ListFilter,
+  ChevronDown,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Select } from "@/components/ui/select";
 import { Card } from "@/components/ui/card";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Table,
   TableBody,
@@ -64,6 +67,52 @@ export default function ProductTable() {
   const [showTypeDropdown, setShowTypeDropdown] = useState(false);
   const [fsStartActive, setFsStartActive] = useState(false);
   const [fsEndActive, setFsEndActive] = useState(false);
+  const [showLinksView, setShowLinksView] = useState(false);
+  const [selectedLines, setSelectedLines] = useState<[number, number] | null>(
+    null,
+  );
+  const [showLimitDropdown, setShowLimitDropdown] = useState(false);
+
+  const sttRef = useRef<HTMLDivElement>(null);
+  const linksRef = useRef<HTMLTextAreaElement>(null);
+
+  const linksValue = products.map((p) => p.link).join("\n");
+
+  const handleLinksScroll = (e: React.UIEvent<HTMLTextAreaElement>) => {
+    if (sttRef.current) {
+      sttRef.current.scrollTop = e.currentTarget.scrollTop;
+    }
+  };
+
+  const handleLinksSelect = (e: React.SyntheticEvent<HTMLTextAreaElement>) => {
+    const target = e.currentTarget;
+
+    if (target.selectionStart === target.selectionEnd) {
+      setSelectedLines(null);
+      return;
+    }
+
+    // 1. Find line indices
+    const textBeforeSelection = target.value.substring(
+      0,
+      target.selectionStart,
+    );
+    const selectedText = target.value.substring(
+      target.selectionStart,
+      target.selectionEnd,
+    );
+
+    const startLineIndex = textBeforeSelection.split("\n").length - 1;
+    let endLineIndex = startLineIndex + selectedText.split("\n").length - 1;
+
+    // Prevent highlighting a trailing empty new line if selection ends exactly at \n
+    if (selectedText.endsWith("\n") && selectedText.length > 1) {
+      endLineIndex = Math.max(startLineIndex, endLineIndex - 1);
+    }
+
+    // Always highlight the full line if even 1 character on that line is selected.
+    setSelectedLines([startLineIndex, endLineIndex]);
+  };
 
   const { loading, execute: fetchProducts } = useApi(ProductService.search);
 
@@ -121,7 +170,7 @@ export default function ProductTable() {
   useEffect(() => {
     loadProducts(1);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [params.sort, params.filters]);
+  }, [params.limit, params.sort, params.filters]);
 
   type SortColumn = NonNullable<ProductSearchParams["sort"]>["column"];
 
@@ -334,177 +383,303 @@ export default function ProductTable() {
           </div>
 
           {/* FS Start Filter — on header */}
+          <div className="flex items-center gap-2 px-2 border-l border-border/40 ml-2 pl-4">
+            <Switch
+              id="links-view"
+              checked={showLinksView}
+              onCheckedChange={setShowLinksView}
+            />
+            <Label
+              htmlFor="links-view"
+              className="cursor-pointer text-sm font-medium"
+            >
+              Hiển thị Link SP
+            </Label>
+          </div>
         </div>
       </div>
 
-      {/* Table */}
-      <div className="overflow-x-auto">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Tên SP</TableHead>
-              <TableHead
-                onClick={() => handleSort("price")}
-                className="cursor-pointer"
-              >
-                <div className="flex items-center">
-                  Giá {getSortIcon("price")}
-                </div>
-              </TableHead>
-              <TableHead
-                onClick={() => handleSort("sold")}
-                className="cursor-pointer"
-              >
-                <div className="flex items-center">
-                  Đã bán {getSortIcon("sold")}
-                </div>
-              </TableHead>
-              <TableHead
-                onClick={() => handleSort("comm")}
-                className="cursor-pointer"
-              >
-                <div className="flex items-center">
-                  Hoa hồng {getSortIcon("comm")}
-                </div>
-              </TableHead>
-              <TableHead
-                onClick={() => handleSort("comm_rate")}
-                className="cursor-pointer"
-              >
-                <div className="flex items-center">
-                  Tỉ lệ {getSortIcon("comm_rate")}
-                </div>
-              </TableHead>
-              <TableHead>Liên kết</TableHead>
-              <TableHead>Loại</TableHead>
-              <TableHead>Mã shop</TableHead>
-              <TableHead>Live Start</TableHead>
-              <TableHead>Live End</TableHead>
-              <TableHead
-                onClick={() => {
-                  const next = !fsStartActive;
-                  setFsStartActive(next);
-                  setParams((prev) => ({
-                    ...prev,
-                    filters: {
-                      ...prev.filters,
-                      flash_sale_start_before: next ? Date.now() : undefined,
-                    },
-                  }));
-                }}
-                className="cursor-pointer"
-              >
-                <div className="flex items-center gap-1">
-                  FS Start
-                  <ListFilter
-                    className={`w-4 h-4 ${fsStartActive ? "text-blue-500" : "opacity-50"}`}
-                  />
-                </div>
-              </TableHead>
-              <TableHead
-                onClick={() => {
-                  const next = !fsEndActive;
-                  setFsEndActive(next);
-                  setParams((prev) => ({
-                    ...prev,
-                    filters: {
-                      ...prev.filters,
-                      flash_sale_end_before: next ? Date.now() : undefined,
-                    },
-                  }));
-                }}
-                className="cursor-pointer"
-              >
-                <div className="flex items-center gap-1">
-                  FS End
-                  <ListFilter
-                    className={`w-4 h-4 ${fsEndActive ? "text-blue-500" : "opacity-50"}`}
-                  />
-                </div>
-              </TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {loading
-              ? Array.from({ length: 5 }).map((_, i) => (
-                  <TableRow key={i}>
-                    {Array.from({ length: COLUMNS_COUNT }).map((_, j) => (
-                      <TableCell key={j}>
-                        <div className="h-4 rounded w-full skeleton-shimmer"></div>
-                      </TableCell>
-                    ))}
-                  </TableRow>
-                ))
-              : products.map((product) => (
-                  <TableRow key={product.id}>
-                    <TableCell
-                      className="max-w-xs truncate"
-                      title={product.name}
-                    >
-                      {product.name}
-                    </TableCell>
-                    <TableCell>₫{product.price.toLocaleString()}</TableCell>
-                    <TableCell title={product.sold.toLocaleString()}>
-                      {formatSold(product.sold)}
-                    </TableCell>
-                    <TableCell>₫{product.comm.toLocaleString()}</TableCell>
-                    <TableCell>
-                      {(product.comm_rate / 1000).toFixed(1)}%
-                    </TableCell>
-                    <TableCell className="max-w-xs truncate">
-                      <a
-                        href={product.link}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-blue-500 hover:underline inline-flex items-center gap-1"
-                      >
-                        Link
-                        <svg
-                          className="w-3 h-3"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke="currentColor"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
-                          />
-                        </svg>
-                      </a>
-                    </TableCell>
-                    <TableCell>{product.type}</TableCell>
-                    <TableCell>{product.shop_id}</TableCell>
-                    <TableCell>{formatTimestamp(product.live_start)}</TableCell>
-                    <TableCell>{formatTimestamp(product.live_end)}</TableCell>
-                    <TableCell>
-                      {formatTimestamp(product.flash_sale_start)}
-                    </TableCell>
-                    <TableCell>
-                      {formatTimestamp(product.flash_sale_end)}
-                    </TableCell>
-                  </TableRow>
-                ))}
-            {!loading && products.length === 0 && (
+      {/* Table / Links View */}
+      <div className="overflow-x-auto min-h-[400px]">
+        {showLinksView ? (
+          <div className="p-4 h-full flex gap-3">
+            <div
+              ref={sttRef}
+              className="w-16 h-[400px] overflow-hidden text-center bg-muted/50 text-muted-foreground border-dashed border rounded-md font-mono text-sm leading-relaxed whitespace-pre-wrap flex flex-col py-2 select-none"
+            >
+              {products.map((_, i) => {
+                const stt = (page - 1) * (params.limit || 20) + i + 1;
+                const isSelected =
+                  selectedLines &&
+                  i >= selectedLines[0] &&
+                  i <= selectedLines[1];
+                return (
+                  <div
+                    key={i}
+                    className={`w-full px-1 ${isSelected ? "bg-[#b3d4fc] text-black dark:bg-[#1a4a82] dark:text-blue-100" : ""}`}
+                  >
+                    {stt}
+                  </div>
+                );
+              })}
+            </div>
+            <Textarea
+              ref={linksRef}
+              className="w-full h-[400px] resize-none font-mono text-sm leading-relaxed whitespace-pre overflow-x-auto"
+              readOnly
+              onScroll={handleLinksScroll}
+              onSelect={handleLinksSelect}
+              value={linksValue}
+              placeholder={
+                loading ? "Đang tải dữ liệu..." : "Chưa có link sản phẩm nào."
+              }
+            />
+          </div>
+        ) : (
+          <Table>
+            <TableHeader>
               <TableRow>
-                <TableCell colSpan={COLUMNS_COUNT} className="h-24 text-center">
-                  Không tìm thấy sản phẩm.
-                </TableCell>
+                <TableHead className="w-16">STT</TableHead>
+                <TableHead>Tên SP</TableHead>
+                <TableHead
+                  onClick={() => handleSort("price")}
+                  className="cursor-pointer"
+                >
+                  <div className="flex items-center">
+                    Giá {getSortIcon("price")}
+                  </div>
+                </TableHead>
+                <TableHead
+                  onClick={() => handleSort("sold")}
+                  className="cursor-pointer"
+                >
+                  <div className="flex items-center">
+                    Đã bán {getSortIcon("sold")}
+                  </div>
+                </TableHead>
+                <TableHead
+                  onClick={() => handleSort("comm")}
+                  className="cursor-pointer"
+                >
+                  <div className="flex items-center">
+                    Hoa hồng {getSortIcon("comm")}
+                  </div>
+                </TableHead>
+                <TableHead
+                  onClick={() => handleSort("comm_rate")}
+                  className="cursor-pointer"
+                >
+                  <div className="flex items-center">
+                    Tỉ lệ {getSortIcon("comm_rate")}
+                  </div>
+                </TableHead>
+                <TableHead>Liên kết</TableHead>
+                <TableHead>Loại</TableHead>
+                <TableHead>Mã shop</TableHead>
+                <TableHead>Live Start</TableHead>
+                <TableHead>Live End</TableHead>
+                <TableHead
+                  onClick={() => {
+                    const next = !fsStartActive;
+                    setFsStartActive(next);
+                    setParams((prev) => ({
+                      ...prev,
+                      filters: {
+                        ...prev.filters,
+                        flash_sale_start_before: next ? Date.now() : undefined,
+                      },
+                    }));
+                  }}
+                  className="cursor-pointer"
+                >
+                  <div className="flex items-center gap-1">
+                    FS Start
+                    <ListFilter
+                      className={`w-4 h-4 ${fsStartActive ? "text-blue-500" : "opacity-50"}`}
+                    />
+                  </div>
+                </TableHead>
+                <TableHead
+                  onClick={() => {
+                    const next = !fsEndActive;
+                    setFsEndActive(next);
+                    setParams((prev) => ({
+                      ...prev,
+                      filters: {
+                        ...prev.filters,
+                        flash_sale_end_before: next ? Date.now() : undefined,
+                      },
+                    }));
+                  }}
+                  className="cursor-pointer"
+                >
+                  <div className="flex items-center gap-1">
+                    FS End
+                    <ListFilter
+                      className={`w-4 h-4 ${fsEndActive ? "text-blue-500" : "opacity-50"}`}
+                    />
+                  </div>
+                </TableHead>
               </TableRow>
-            )}
-          </TableBody>
-        </Table>
+            </TableHeader>
+            <TableBody>
+              {loading
+                ? Array.from({ length: 5 }).map((_, i) => (
+                    <TableRow key={i}>
+                      {Array.from({ length: COLUMNS_COUNT + 1 }).map((_, j) => (
+                        <TableCell key={j}>
+                          <div className="h-4 rounded w-full skeleton-shimmer"></div>
+                        </TableCell>
+                      ))}
+                    </TableRow>
+                  ))
+                : products.map((product, index) => (
+                    <TableRow key={product.id}>
+                      <TableCell className="text-center text-muted-foreground font-medium">
+                        {(page - 1) * (params.limit || 20) + index + 1}
+                      </TableCell>
+                      <TableCell
+                        className="max-w-xs truncate"
+                        title={product.name}
+                      >
+                        {product.name}
+                      </TableCell>
+                      <TableCell>₫{product.price.toLocaleString()}</TableCell>
+                      <TableCell title={product.sold.toLocaleString()}>
+                        {formatSold(product.sold)}
+                      </TableCell>
+                      <TableCell>₫{product.comm.toLocaleString()}</TableCell>
+                      <TableCell>
+                        {(product.comm_rate / 1000).toFixed(1)}%
+                      </TableCell>
+                      <TableCell className="max-w-xs truncate">
+                        <a
+                          href={product.link}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-blue-500 hover:underline inline-flex items-center gap-1"
+                        >
+                          Link
+                          <svg
+                            className="w-3 h-3"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+                            />
+                          </svg>
+                        </a>
+                      </TableCell>
+                      <TableCell>{product.type}</TableCell>
+                      <TableCell>{product.shop_id}</TableCell>
+                      <TableCell>
+                        {formatTimestamp(product.live_start)}
+                      </TableCell>
+                      <TableCell>{formatTimestamp(product.live_end)}</TableCell>
+                      <TableCell>
+                        {formatTimestamp(product.flash_sale_start)}
+                      </TableCell>
+                      <TableCell>
+                        {formatTimestamp(product.flash_sale_end)}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+              {!loading && products.length === 0 && (
+                <TableRow>
+                  <TableCell
+                    colSpan={COLUMNS_COUNT + 1}
+                    className="h-24 text-center"
+                  >
+                    Không tìm thấy sản phẩm.
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        )}
       </div>
 
       {/* Pagination */}
-      <div className="p-4 flex items-center justify-between border-t border-border/40">
-        <span className="text-sm text-muted-foreground">
-          Hiển thị{" "}
-          {products.length > 0 ? (page - 1) * (params.limit || 20) + 1 : 0}–
-          {Math.min(page * (params.limit || 20), totalCount)} trong {totalCount}{" "}
-          sản phẩm
-        </span>
+      <div className="p-4 flex items-center justify-between border-t border-border/40 gap-4 flex-wrap">
+        <div className="flex items-center gap-4 flex-wrap">
+          <span className="text-sm text-muted-foreground">
+            Hiển thị{" "}
+            {products.length > 0 ? (page - 1) * (params.limit || 20) + 1 : 0}–
+            {Math.min(page * (params.limit || 20), totalCount)} trong{" "}
+            {totalCount} sản phẩm
+          </span>
+
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground hidden sm:inline">
+              Số dòng/trang:
+            </span>
+            <div className="relative">
+              <button
+                onClick={() => setShowLimitDropdown((v) => !v)}
+                className="flex items-center justify-between w-16 px-2 py-1.5 text-sm font-medium border rounded-md border-border/60 bg-background hover:bg-muted/40 dark:border-white/10 dark:hover:bg-white/5 transition-colors cursor-pointer"
+                title="Thay đổi số lượng hiển thị"
+              >
+                {params.limit}
+                <ChevronDown className="w-3 h-3 opacity-50" />
+              </button>
+
+              {showLimitDropdown && (
+                <>
+                  <div
+                    className="fixed inset-0 z-40"
+                    onClick={() => setShowLimitDropdown(false)}
+                  />
+                  <div className="absolute bottom-full mb-1 left-0 z-50 w-36 p-1.5 rounded-lg border border-border/60 bg-card shadow-xl dark:border-white/10 animate-in fade-in slide-in-from-bottom-2">
+                    {[20, 40, 60, 100].map((val) => (
+                      <button
+                        key={val}
+                        onClick={() => {
+                          setParams((prev) => ({ ...prev, limit: val }));
+                          setShowLimitDropdown(false);
+                        }}
+                        className={`w-full text-left px-2 py-1.5 text-sm rounded-md transition-colors cursor-pointer hover:bg-muted dark:hover:bg-white/10 ${
+                          params.limit === val
+                            ? "bg-blue-50 text-blue-600 font-medium dark:bg-blue-500/10 dark:text-blue-400"
+                            : "text-foreground"
+                        }`}
+                      >
+                        {val}
+                      </button>
+                    ))}
+
+                    <div className="h-px bg-border/40 my-1.5 mx-1 dark:bg-white/10" />
+
+                    <div
+                      className="px-1 py-0.5"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <Input
+                        type="number"
+                        placeholder="Nhập tuỳ ý..."
+                        className="h-8 text-[13px] px-2 w-full focus-visible:ring-1 focus-visible:ring-blue-500 font-sans"
+                        defaultValue={params.limit}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            const val = parseInt(e.currentTarget.value);
+                            if (!isNaN(val) && val > 0) {
+                              setParams((prev) => ({ ...prev, limit: val }));
+                              setShowLimitDropdown(false);
+                            }
+                          }
+                        }}
+                      />
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
 
         <div className="flex items-center gap-1">
           <Button

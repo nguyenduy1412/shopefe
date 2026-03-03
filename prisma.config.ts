@@ -12,6 +12,6 @@ export default defineConfig({
     datasource: {
         // Use DIRECT_URL for migrations (avoids PgBouncer prepared statement issues)
         // Adapting to check for NEXT_PUBLIC_ variants as well
-        url: process.env['DIRECT_URL'] || process.env['NEXT_PUBLIC_DIRECT_URL'] || process.env['DATABASE_URL'] || process.env['NEXT_PUBLIC_DATABASE_URL'],
+        url: (process.env['DIRECT_URL'] || process.env['NEXT_PUBLIC_DIRECT_URL'] || process.env['DATABASE_URL'] || process.env['NEXT_PUBLIC_DATABASE_URL']) as string,
     },
 });
