@@ -18,12 +18,10 @@ export default async function Home() {
   // Get today's record (using normalized ICT date)
   const today = getICTDate(getICTNow());
 
-  const record = await prisma.timekeeping.findUnique({
+  const record = await prisma.timekeeping.findFirst({
     where: {
-      user_id_date: {
-        user_id: user.id,
-        date: today,
-      },
+      user_id: user.id,
+      date: today,
     },
   });
 

@@ -44,12 +44,10 @@ export async function checkInAction() {
 
   try {
     // Check if already checked in today
-    const existing = await prisma.timekeeping.findUnique({
+    const existing = await prisma.timekeeping.findFirst({
       where: {
-        user_id_date: {
-          user_id: user.id,
-          date: today,
-        },
+        user_id: user.id,
+        date: today,
       },
     });
 
@@ -106,12 +104,10 @@ export async function checkOutAction() {
   const today = getICTDate(now);
 
   try {
-    const existing = await prisma.timekeeping.findUnique({
+    const existing = await prisma.timekeeping.findFirst({
       where: {
-        user_id_date: {
-          user_id: user.id,
-          date: today,
-        },
+        user_id: user.id,
+        date: today,
       },
     });
 
