@@ -1,110 +1,146 @@
-
 import { createClient } from "@/utils/supabase/client";
 import { Product } from "@/types/database";
 
 const supabase = createClient();
 
 export interface ProductSearchParams {
-    page?: number;       // 1-indexed page number
-    limit?: number;      // items per page, default 20
-    filters?: {
-        name?: string;
-        shop_id?: string;
-        type?: string[];  // array of selected types
-        flash_sale_start_before?: number;
-        flash_sale_end_before?: number;
-    };
-    sort?: {
-        column: "created_at" | "price" | "sold" | "comm" | "comm_rate";
-        direction: "asc" | "desc";
-    };
+  page?: number; // 1-indexed page number
+  limit?: number; // items per page, default 20
+  filters?: {
+    name?: string;
+    shop_id?: string;
+    type?: string[]; // array of selected types
+    catid?: string[]; // array of selected category IDs
+    flash_sale_start_before?: number;
+    flash_sale_end_before?: number;
+  };
+  sort?: {
+    column: "created_at" | "price" | "sold" | "comm" | "comm_rate";
+    direction: "asc" | "desc";
+  };
 }
 
 export interface ProductSearchResult {
-    data: Product[];
-    totalCount: number;
-    page: number;
-    totalPages: number;
+  data: Product[];
+  totalCount: number;
+  page: number;
+  totalPages: number;
 }
 
 export const ProductService = {
-    // Supports search filters, sorting, and page-based pagination
-    async search({ page = 1, limit = 20, filters, sort }: ProductSearchParams): Promise<ProductSearchResult> {
-        const sortColumn = sort?.column || "created_at";
-        const sortDirection = sort?.direction || "desc";
-        const isAsc = sortDirection === "asc";
+  // Supports search filters, sorting, and page-based pagination
+  async search({
+    page = 1,
+    limit = 20,
+    filters,
+    sort,
+  }: ProductSearchParams): Promise<ProductSearchResult> {
+    const sortColumn = sort?.column || "created_at";
+    const sortDirection = sort?.direction || "desc";
+    const isAsc = sortDirection === "asc";
 
-        const from = (page - 1) * limit;
-        const to = from + limit - 1;
+    const from = (page - 1) * limit;
+    const to = from + limit - 1;
 
-        let query = supabase
-            .from("products")
-            .select("*", { count: "exact" })
-            .order(sortColumn, { ascending: isAsc })
-            .order("id", { ascending: true }) // Deterministic tie-breaker
-            .range(from, to);
+    const hasCatFilter = !!(filters?.catid && filters.catid.length > 0);
+    console.log("[DEBUG] search params:", {
+      page,
+      limit,
+      filters,
+      sort,
+      hasCatFilter,
+    });
 
-        // Apply Filters (AND conditions)
-        if (filters) {
-            if (filters.name) {
-                query = query.ilike("name", `%${filters.name}%`);
-            }
-            if (filters.shop_id) {
-                query = query.eq("shop_id", filters.shop_id);
-            }
-            if (filters.type && filters.type.length > 0) {
-                query = query.in("type", filters.type);
-            }
-            if (filters.flash_sale_start_before != null) {
-                query = query.not("flash_sale_start", "is", null)
-                    .lte("flash_sale_start", filters.flash_sale_start_before);
-            }
-            if (filters.flash_sale_end_before != null) {
-                query = query.not("flash_sale_end", "is", null)
-                    .lte("flash_sale_end", filters.flash_sale_end_before);
-            }
-        }
+    const selectStr = "*, categories(catid, display_name, name, parent_catid)";
 
-        const { data, error, count } = await query;
-        if (error) throw error;
+    let query = supabase
+      .from("products")
+      .select(selectStr, { count: "exact" })
+      .order(sortColumn, { ascending: isAsc })
+      .order("id", { ascending: true }) // Deterministic tie-breaker
+      .range(from, to);
 
-        const totalCount = count ?? 0;
-        const totalPages = Math.ceil(totalCount / limit);
+    // Apply Filters (AND conditions)
+    if (filters) {
+      if (filters.name) {
+        query = query.ilike("name", `%${filters.name}%`);
+      }
+      if (filters.shop_id) {
+        query = query.eq("shop_id", filters.shop_id);
+      }
+      if (filters.type && filters.type.length > 0) {
+        query = query.in("type", filters.type);
+      }
+      if (hasCatFilter) {
+        // Filter via product catid
+        query = query.in("catid", filters.catid!);
+      }
+      if (filters.flash_sale_start_before != null) {
+        query = query
+          .not("flash_sale_start", "is", null)
+          .lte("flash_sale_start", filters.flash_sale_start_before);
+      }
+      if (filters.flash_sale_end_before != null) {
+        query = query
+          .not("flash_sale_end", "is", null)
+          .lte("flash_sale_end", filters.flash_sale_end_before);
+      }
+    }
 
-        return {
-            data: data || [],
-            totalCount,
-            page,
-            totalPages,
-        };
-    },
+    console.log("[DEBUG] Executing Supabase query...");
+    const { data, error, count } = await query;
+    if (error) {
+      console.error("[DEBUG] Supabase Error:", error);
+      throw error;
+    }
+    console.log(`[DEBUG] Query returned ${data?.length} rows, count: ${count}`);
 
-    // Get all distinct product types
-    async getTypes(): Promise<string[]> {
-        // Query distinct types — Supabase doesn't have native DISTINCT,
-        // so we select type column and dedupe client-side
-        const { data, error } = await supabase
-            .from("products")
-            .select("type")
-            .limit(1000);
-        if (error) throw error;
-        const types = [...new Set((data || []).map((d: { type: string }) => d.type))].filter(Boolean).sort();
-        return types;
-    },
+    const totalCount = count ?? 0;
+    const totalPages = Math.ceil(totalCount / limit);
 
-    async getById(id: string) {
-        return await supabase.from("products").select("*").eq("id", id).single();
-    },
+    return {
+      data: data || [],
+      totalCount,
+      page,
+      totalPages,
+    };
+  },
 
-    async create(product: Omit<Product, "created_at" | "updated_at">) {
-        return await supabase.from("products").insert(product).select().single();
-    },
+  // Get all distinct product types
+  async getTypes(): Promise<string[]> {
+    // Query distinct types — Supabase doesn't have native DISTINCT,
+    // so we select type column and dedupe client-side
+    const { data, error } = await supabase
+      .from("products")
+      .select("type")
+      .limit(1000);
+    if (error) throw error;
+    const types = [
+      ...new Set((data || []).map((d: { type: string }) => d.type)),
+    ]
+      .filter(Boolean)
+      .sort();
+    return types;
+  },
 
-    async update(id: string, updates: Partial<Product>) {
-        return await supabase.from("products").update(updates).eq("id", id).select().single();
-    },
+  async getById(id: string) {
+    return await supabase.from("products").select("*").eq("id", id).single();
+  },
 
-    async delete(id: string) {
-        return await supabase.from("products").delete().eq("id", id);
-    },
+  async create(product: Omit<Product, "created_at" | "updated_at">) {
+    return await supabase.from("products").insert(product).select().single();
+  },
+
+  async update(id: string, updates: Partial<Product>) {
+    return await supabase
+      .from("products")
+      .update(updates)
+      .eq("id", id)
+      .select()
+      .single();
+  },
+
+  async delete(id: string) {
+    return await supabase.from("products").delete().eq("id", id);
+  },
 };

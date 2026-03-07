@@ -12,6 +12,7 @@ import {
   Calendar,
   ChevronLeft,
   ChevronRight,
+  ListTree,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
@@ -22,6 +23,7 @@ import { useSidebar } from "./SidebarContext";
 const navItems = [
   { name: "Tổng quan", href: "/dashboard", icon: LayoutDashboard },
   { name: "Sản phẩm", href: "/dashboard/products", icon: ShoppingBag },
+  { name: "Danh mục", href: "/dashboard/categories", icon: ListTree },
   { name: "Người dùng", href: "/dashboard/users", icon: Users },
   { name: "Chấm công", href: "/dashboard/timekeeping", icon: Calendar },
   { name: "Cài đặt", href: "/dashboard/settings", icon: Settings },

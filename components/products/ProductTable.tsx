@@ -2,7 +2,8 @@
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import { ProductService, ProductSearchParams } from "@/services/products";
-import { Product } from "@/types/database";
+import { CategoryService } from "@/services/categories";
+import { Category, Product } from "@/types/database";
 import { useApi } from "@/hooks/useApi";
 import {
   Search,
@@ -57,6 +58,15 @@ export default function ProductTable() {
   const [totalPages, setTotalPages] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
   const [typeOptions, setTypeOptions] = useState<string[]>([]);
+  const [parentCategories, setParentCategories] = useState<Category[]>([]);
+  const [childCategories, setChildCategories] = useState<
+    Record<string, Category[]>
+  >({});
+  const [expandedParents, setExpandedParents] = useState<Set<string>>(
+    new Set(),
+  );
+  const [selectedCatIds, setSelectedCatIds] = useState<string[]>([]);
+  const [showCatDropdown, setShowCatDropdown] = useState(false);
   const [params, setParams] = useState<ProductSearchParams>({
     limit: 20,
     sort: { column: "created_at", direction: "desc" },
@@ -126,6 +136,63 @@ export default function ProductTable() {
       })
       .catch((err) => console.error("Failed to load types", err));
   }, []);
+
+  // Load parent categories on mount
+  useEffect(() => {
+    CategoryService.getParents()
+      .then((cats) => setParentCategories(cats))
+      .catch((err) => console.error("Failed to load categories", err));
+  }, []);
+
+  // Load children when a parent is expanded
+  const loadChildren = async (parentCatid: string) => {
+    if (childCategories[parentCatid]) return; // already loaded
+    try {
+      const result = await CategoryService.search({
+        limit: 200,
+        filters: { parent_catid: parentCatid },
+        sort: { column: "display_name", direction: "asc" },
+      });
+      setChildCategories((prev) => ({ ...prev, [parentCatid]: result.data }));
+    } catch (err) {
+      console.error("Failed to load child categories", err);
+    }
+  };
+
+  const toggleParentExpand = (catid: string) => {
+    setExpandedParents((prev) => {
+      const next = new Set(prev);
+      if (next.has(catid)) {
+        next.delete(catid);
+      } else {
+        next.add(catid);
+        loadChildren(catid);
+      }
+      return next;
+    });
+  };
+
+  const toggleCatId = (catid: string) => {
+    const next = selectedCatIds.includes(catid)
+      ? selectedCatIds.filter((c) => c !== catid)
+      : [...selectedCatIds, catid];
+    setSelectedCatIds(next);
+    setParams((prev) => ({
+      ...prev,
+      filters: {
+        ...prev.filters,
+        catid: next.length > 0 ? next : undefined,
+      },
+    }));
+  };
+
+  const clearCatFilter = () => {
+    setSelectedCatIds([]);
+    setParams((prev) => ({
+      ...prev,
+      filters: { ...prev.filters, catid: undefined },
+    }));
+  };
 
   // Load products for current page
   const loadProducts = useCallback(
@@ -238,13 +305,7 @@ export default function ProductTable() {
 
         <div className="flex items-center gap-3 flex-wrap">
           {/* Type Filter — dropdown with checkboxes */}
-          <div
-            className="relative"
-            ref={(() => {
-              const ref = { current: null as HTMLDivElement | null };
-              return ref;
-            })()}
-          >
+          <div className="relative">
             <button
               onClick={() => setShowTypeDropdown((v) => !v)}
               className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-sm font-medium transition-all duration-150 ${
@@ -382,6 +443,213 @@ export default function ProductTable() {
             )}
           </div>
 
+          {/* Category Filter — dropdown with parent/child hierarchy */}
+          <div className="relative">
+            <button
+              onClick={() => setShowCatDropdown((v) => !v)}
+              className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-sm font-medium transition-all duration-150 ${
+                selectedCatIds.length > 0
+                  ? "border-purple-500 bg-purple-50 text-purple-700 dark:border-purple-400 dark:bg-purple-500/10 dark:text-purple-400"
+                  : "border-border/60 text-muted-foreground hover:bg-muted/40 dark:border-white/10 dark:hover:bg-white/5"
+              }`}
+            >
+              <ListFilter className="w-4 h-4" />
+              {selectedCatIds.length > 0
+                ? `Danh mục (${selectedCatIds.length})`
+                : "Tất cả danh mục"}
+              <svg
+                className={`w-3 h-3 transition-transform ${showCatDropdown ? "rotate-180" : ""}`}
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2.5}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M19 9l-7 7-7-7"
+                />
+              </svg>
+            </button>
+
+            {showCatDropdown && (
+              <>
+                <div
+                  className="fixed inset-0 z-40"
+                  onClick={() => setShowCatDropdown(false)}
+                />
+                <div className="absolute left-0 top-full mt-1.5 z-50 w-72 rounded-xl border border-border/60 bg-card shadow-lg dark:border-white/10 dark:shadow-2xl">
+                  <div className="p-2 space-y-0.5 max-h-80 overflow-y-auto">
+                    {/* All option */}
+                    <label className="flex items-center gap-2.5 px-3 py-2 rounded-lg cursor-pointer hover:bg-muted/50 dark:hover:bg-white/5 transition-colors">
+                      <span
+                        className={`w-4 h-4 rounded border-2 flex items-center justify-center flex-shrink-0 transition-all ${
+                          selectedCatIds.length === 0
+                            ? "bg-purple-500 border-purple-500 text-white dark:bg-purple-400 dark:border-purple-400"
+                            : "border-gray-300 dark:border-gray-600"
+                        }`}
+                      >
+                        {selectedCatIds.length === 0 && (
+                          <svg
+                            className="w-2.5 h-2.5"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                            strokeWidth={3}
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              d="M5 13l4 4L19 7"
+                            />
+                          </svg>
+                        )}
+                      </span>
+                      <span className="text-sm font-medium">
+                        Tất cả danh mục
+                      </span>
+                      <input
+                        type="checkbox"
+                        className="sr-only"
+                        checked={selectedCatIds.length === 0}
+                        onChange={clearCatFilter}
+                      />
+                    </label>
+
+                    <div className="h-px bg-border/40 mx-2 dark:bg-white/5" />
+
+                    {parentCategories.map((parent) => {
+                      const isParentChecked = selectedCatIds.includes(
+                        parent.catid,
+                      );
+                      const isExpanded = expandedParents.has(parent.catid);
+                      const children = childCategories[parent.catid] || [];
+                      return (
+                        <div key={parent.catid}>
+                          {/* Parent row */}
+                          <div className="flex items-center gap-1 px-1 py-0.5 rounded-lg hover:bg-muted/50 dark:hover:bg-white/5 transition-colors">
+                            {/* Expand toggle */}
+                            <button
+                              type="button"
+                              onClick={() => toggleParentExpand(parent.catid)}
+                              className="p-1.5 rounded-md hover:bg-muted dark:hover:bg-white/10 flex-shrink-0 transition-colors"
+                            >
+                              <svg
+                                className={`w-3 h-3 text-muted-foreground transition-transform ${isExpanded ? "rotate-90" : ""}`}
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                stroke="currentColor"
+                                strokeWidth={2.5}
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  d="M9 5l7 7-7 7"
+                                />
+                              </svg>
+                            </button>
+                            {/* Checkbox label */}
+                            <label className="flex items-center gap-2 flex-1 cursor-pointer py-1">
+                              <span
+                                className={`w-4 h-4 rounded border-2 flex items-center justify-center flex-shrink-0 transition-all ${
+                                  isParentChecked
+                                    ? "bg-purple-500 border-purple-500 text-white dark:bg-purple-400 dark:border-purple-400"
+                                    : "border-gray-300 dark:border-gray-600"
+                                }`}
+                              >
+                                {isParentChecked && (
+                                  <svg
+                                    className="w-2.5 h-2.5"
+                                    fill="none"
+                                    viewBox="0 0 24 24"
+                                    stroke="currentColor"
+                                    strokeWidth={3}
+                                  >
+                                    <path
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      d="M5 13l4 4L19 7"
+                                    />
+                                  </svg>
+                                )}
+                              </span>
+                              <span className="text-sm font-medium truncate">
+                                {parent.display_name || parent.name}
+                              </span>
+                              <input
+                                type="checkbox"
+                                className="sr-only"
+                                checked={isParentChecked}
+                                onChange={() => toggleCatId(parent.catid)}
+                              />
+                            </label>
+                          </div>
+
+                          {/* Children rows */}
+                          {isExpanded && (
+                            <div className="ml-6 space-y-0.5">
+                              {children.length === 0 ? (
+                                <div className="px-3 py-1.5 text-xs text-muted-foreground italic">
+                                  Đang tải...
+                                </div>
+                              ) : (
+                                children.map((child) => {
+                                  const isChildChecked =
+                                    selectedCatIds.includes(child.catid);
+                                  return (
+                                    <label
+                                      key={child.catid}
+                                      className="flex items-center gap-2.5 px-3 py-1.5 rounded-lg cursor-pointer hover:bg-muted/50 dark:hover:bg-white/5 transition-colors"
+                                    >
+                                      <span
+                                        className={`w-3.5 h-3.5 rounded border-2 flex items-center justify-center flex-shrink-0 transition-all ${
+                                          isChildChecked
+                                            ? "bg-purple-500 border-purple-500 text-white dark:bg-purple-400 dark:border-purple-400"
+                                            : "border-gray-300 dark:border-gray-600"
+                                        }`}
+                                      >
+                                        {isChildChecked && (
+                                          <svg
+                                            className="w-2 h-2"
+                                            fill="none"
+                                            viewBox="0 0 24 24"
+                                            stroke="currentColor"
+                                            strokeWidth={3}
+                                          >
+                                            <path
+                                              strokeLinecap="round"
+                                              strokeLinejoin="round"
+                                              d="M5 13l4 4L19 7"
+                                            />
+                                          </svg>
+                                        )}
+                                      </span>
+                                      <span className="text-xs truncate">
+                                        {child.display_name || child.name}
+                                      </span>
+                                      <input
+                                        type="checkbox"
+                                        className="sr-only"
+                                        checked={isChildChecked}
+                                        onChange={() =>
+                                          toggleCatId(child.catid)
+                                        }
+                                      />
+                                    </label>
+                                  );
+                                })
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+
           {/* FS Start Filter — on header */}
           <div className="flex items-center gap-2 px-2 border-l border-border/40 ml-2 pl-4">
             <Switch
@@ -474,7 +742,6 @@ export default function ProductTable() {
                   </div>
                 </TableHead>
                 <TableHead>Liên kết</TableHead>
-                <TableHead>Loại</TableHead>
                 <TableHead>Mã shop</TableHead>
                 <TableHead>Live Start</TableHead>
                 <TableHead>Live End</TableHead>
@@ -539,10 +806,29 @@ export default function ProductTable() {
                         {(page - 1) * (params.limit || 20) + index + 1}
                       </TableCell>
                       <TableCell
-                        className="max-w-xs truncate"
+                        className="max-w-xs truncate whitespace-normal"
                         title={product.name}
                       >
-                        {product.name}
+                        <div className="flex flex-col gap-1">
+                          <span className="line-clamp-2">{product.name}</span>
+                          {(() => {
+                            type ProductCat = {
+                              display_name?: string;
+                              name?: string;
+                            };
+                            const p = product as Product & {
+                              categories?: ProductCat | null;
+                            };
+                            const cat = p.categories;
+                            const catName = cat?.display_name || cat?.name;
+                            if (!catName) return null;
+                            return (
+                              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300 w-fit">
+                                {catName}
+                              </span>
+                            );
+                          })()}
+                        </div>
                       </TableCell>
                       <TableCell>₫{product.price.toLocaleString()}</TableCell>
                       <TableCell title={product.sold.toLocaleString()}>
@@ -575,7 +861,7 @@ export default function ProductTable() {
                           </svg>
                         </a>
                       </TableCell>
-                      <TableCell>{product.type}</TableCell>
+
                       <TableCell>{product.shop_id}</TableCell>
                       <TableCell>
                         {formatTimestamp(product.live_start)}

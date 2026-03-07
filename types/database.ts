@@ -21,6 +21,7 @@ export interface Product {
   sold: number;
   type: string;
   shop_id: string;
+  catid?: string | null;
   live_start?: number | null;
   live_end?: number | null;
   flash_sale_start?: number | null;

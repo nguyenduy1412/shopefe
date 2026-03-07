@@ -18,12 +18,13 @@ model categories {
   unselected_image String
   selected_image   String
   level            Int
-  created_at       DateTime @default(now())
+  created_at       DateTime              @default(now())
   updated_at       DateTime
+  products         products[]
 }
 
 model products {
-  id               String   @id
+  id               String               @id
   link             String
   name             String
   price            Float
@@ -32,18 +33,22 @@ model products {
   sold             Int
   type             String
   shop_id          String
-  created_at       DateTime @default(now())
+  catid            String?
+  created_at       DateTime             @default(now())
   updated_at       DateTime
   live_start       BigInt?
   live_end         BigInt?
   flash_sale_start BigInt?
   flash_sale_end   BigInt?
-  shops            shops    @relation(fields: [shop_id], references: [id])
+  shops            shops                @relation(fields: [shop_id], references: [id])
+  category         categories?          @relation(fields: [catid], references: [catid])
 }
 
 model shops {
-  id       String     @id
-  products products[]
+  id         String     @id
+  products   products[]
+  created_at DateTime   @default(now())
+  updated_at DateTime   @default(now()) @updatedAt
 }
 
 model role {
